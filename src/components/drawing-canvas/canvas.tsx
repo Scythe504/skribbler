@@ -1,15 +1,19 @@
 'use client'
 import { useDraw } from "@/hooks/useDraw"
+import { currentColor } from "@/store/atoms/color";
 import { currentTool } from "@/store/atoms/drawTool";
-import { DrawMethods } from "@/utils/draw";
+import { DrawingTool, DrawMethods } from "@/utils/draw";
 import { useAtom } from "jotai";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 
 export const DrawingCanvas = () => {
-    const drawMethod = useMemo(() => new DrawMethods(), [])
+    const [color] = useAtom(currentColor)
+    const drawMethod = useMemo(() => new DrawMethods(color), [color])
     const [drawTool] = useAtom(currentTool)
     const { canvasRef, onMouseDown } = useDraw(
-        drawMethod.getDrawMethod(drawTool)
+        drawMethod.getDrawMethod(drawTool),
+        drawMethod.getDrawMethod(drawTool),
+        drawTool === DrawingTool.BucketTool ? 'fill' : 'line'
     )
     
     return <div>

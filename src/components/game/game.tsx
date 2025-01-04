@@ -1,6 +1,7 @@
 import { Players } from "@/components/player/players"
 import { DrawingCanvas } from "@/components/drawing-canvas/canvas"
 import { DrawMethods } from "../drawing-canvas/draw-methods"
+import { ColorPicker } from "../drawing-canvas/color-picker"
 
 export const Game = () => {
     return <div
@@ -10,6 +11,7 @@ export const Game = () => {
         <div>
             <DrawingCanvas />
             <DrawMethods/>
+            <ColorPicker/>
         </div>
         {/* <Players/> */}
     </div>

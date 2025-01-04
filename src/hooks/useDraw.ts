@@ -1,62 +1,86 @@
 import { useEffect, useRef, useState } from "react"
 
-export const useDraw = (onDraw: ({
-    ctx, 
-    currentPoint, 
-    prevPoint
-}: Draw)=> void) => {
-    const [mouseDown, setMouseDown] = useState<boolean>(false)
-    const canvasRef = useRef<HTMLCanvasElement | null>(null)
-    const prevPoint = useRef<null | Point>(null)
+type Tool = 'line' | 'fill';
 
-    const onMouseDown = ()=> setMouseDown(true)
-    const mouseUpHandler = ()=> {
-        setMouseDown(false)
-        prevPoint.current = null
-    }
-    
+export const useDraw = (
+    onDraw: ({ ctx, currentPoint, prevPoint }: Draw) => void,
+    onFill: ({ ctx, currentPoint }: Draw) => void,
+    tool: Tool = 'line'
+) => {
+    const [mouseDown, setMouseDown] = useState<boolean>(false);
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const prevPoint = useRef<null | Point>(null);
+
+    const getCanvasCoordinates = (e: MouseEvent): Point | null => {
+        const canvas = canvasRef.current;
+        if (!canvas) return null;
+
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        return { x, y };
+    };
+
+    const onMouseDown = (e: MouseEvent) => {
+        if (tool === 'fill') {
+            const currentPoint = getCanvasCoordinates(e);
+            const ctx = canvasRef.current?.getContext('2d');
+
+            if (!ctx || !currentPoint) return;
+
+            onFill({ ctx, currentPoint, prevPoint: null });
+            return;
+        }
+
+        setMouseDown(true);
+    };
+
+    const mouseUpHandler = () => {
+        setMouseDown(false);
+        prevPoint.current = null;
+    };
+
     useEffect(() => {
-        const handler = (e: MouseEvent) => {
-            if (!mouseDown) return
+        const mouseMoveHandler = (e: MouseEvent) => {
+            if (!mouseDown || tool !== 'line') return;
 
-            const currentPoint = canvasCoordinates(e)
-            console.log(currentPoint?.x, currentPoint?.y)
+            const currentPoint = getCanvasCoordinates(e);
+            const ctx = canvasRef.current?.getContext('2d');
 
-            const ctx = canvasRef.current?.getContext('2d')
-            if (!ctx || !currentPoint) {
-                return
-            }
+            if (!ctx || !currentPoint) return;
 
             onDraw({
-                ctx, 
-                currentPoint, 
-                prevPoint: prevPoint.current as Point
-            })
+                ctx,
+                currentPoint,
+                prevPoint: prevPoint.current
+            });
 
             prevPoint.current = currentPoint;
+        };
+
+        const mouseDownHandler = (e: MouseEvent) => {
+            if (e.button !== 0) return; // Only handle left click
+            onMouseDown(e);
+        };
+
+        // Add event listeners
+        const canvas = canvasRef.current;
+        if (canvas) {
+            canvas.addEventListener('mousemove', mouseMoveHandler);
+            canvas.addEventListener('mousedown', mouseDownHandler);
+            window.addEventListener('mouseup', mouseUpHandler);
         }
 
-        const canvasCoordinates = (e: MouseEvent)=> {
-            const canvas = canvasRef.current
-            if (!canvas) {
-                return
-            }
-
-            const rect = canvas.getBoundingClientRect()
-            const x = e.clientX - rect.left
-            const y = e.clientY - rect.top
-
-            return { x, y }
-        }
-        canvasRef.current?.addEventListener('mousemove', handler)
-        window?.addEventListener('mouseup', mouseUpHandler)
-
+        // Cleanup
         return () => {
-            canvasRef.current?.removeEventListener('mousemove', handler)
-            window?.addEventListener('mouseup', mouseUpHandler)
-        }
+            if (canvas) {
+                canvas.removeEventListener('mousemove', mouseMoveHandler);
+                canvas.removeEventListener('mousedown', mouseDownHandler);
+                window.removeEventListener('mouseup', mouseUpHandler);
+            }
+        };
+    }, [onDraw, onFill, mouseDown, tool]);
 
-    }, [onDraw])
-
-    return { canvasRef, onMouseDown }
-}
+    return { canvasRef, onMouseDown: (e: React.MouseEvent) => onMouseDown(e.nativeEvent) };
+};
