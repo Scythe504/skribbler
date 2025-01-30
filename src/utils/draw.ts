@@ -4,6 +4,140 @@ export enum DrawingTool {
     BucketTool = "BucketTool",
     EraseTool = "EraseTool",
 }
+export interface DrawData {
+    x: Number;
+    y: Number;
+    color: String;
+    lineWidth: Number;
+    isDragging: Boolean;
+}
+
+export interface Snapshot {
+    toolType: DrawingTool;
+    points: {
+        current: Point;
+        previous: Point | null;
+    };
+    color: HexString;
+    lineWidth: number;
+    timestamp: number;
+}
+
+interface DrawingState {
+    snapshots: Snapshot[];
+    currentIndex: number;
+}
+
+export class DrawingManager {
+    private drawMethods: DrawMethods;
+    private state: DrawingState;
+    private ws: WebSocket;
+    private ctx: CanvasRenderingContext2D;
+
+    constructor({ ctx, websocketUrl }: {
+        ctx: CanvasRenderingContext2D,
+        websocketUrl: string
+    }) {
+        this.drawMethods = new DrawMethods('000000')
+        this.state = {
+            snapshots: [],
+            currentIndex: -1,
+        }
+        this.ws = new WebSocket(websocketUrl)
+        this.ctx = ctx
+
+        this.setupWebSocket()
+    }
+
+    private setupWebSocket() {
+        this.ws.onmessage = (event) => {
+            const snapshot = JSON.parse(event.data)
+            this.applyRemoteSnapshot(snapshot);
+        }
+    }
+
+    public createSnapshot({ toolType, currentPoint, prevPoint, color, lineWidth }: {
+        toolType: DrawingTool,
+        currentPoint: Point,
+        prevPoint: Point,
+        color: HexString,
+        lineWidth: number
+    }): Snapshot {
+
+        const snapshot: Snapshot = {
+            toolType,
+            points: {
+                current: currentPoint,
+                previous: prevPoint,
+            },
+            color,
+            lineWidth,
+            timestamp: Date.now()
+        }
+
+        this.state.snapshots.push(snapshot);
+        this.state.currentIndex++
+
+        this.ws.send(JSON.stringify({
+            type: "draw",
+            data: snapshot
+        }))
+
+        return snapshot
+    }
+
+    public applyRemoteSnapshot(snapshot: Snapshot) {
+        // TODO - improve color replacing
+        const tempDrawMethods = new DrawMethods(snapshot.color.replace('#', ''))
+        tempDrawMethods.lineWidth = snapshot.lineWidth
+
+        const drawMethod = tempDrawMethods.getDrawMethod(snapshot.toolType);
+
+        drawMethod({
+            ctx: this.ctx,
+            currentPoint: snapshot.points.current,
+            prevPoint: snapshot.points.previous
+        })
+
+        this.state.snapshots.push(snapshot);
+        this.state.currentIndex++
+    }
+
+    public replaySnapshots() {
+        // Clear canvas first
+        this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
+
+        // Replay all snapshots
+        this.state.snapshots.forEach(snapshot => {
+            this.drawMethods.lineColor = snapshot.color;
+            this.drawMethods.lineWidth = snapshot.lineWidth;
+
+            const drawMethod = this.drawMethods.getDrawMethod(snapshot.toolType);
+            drawMethod({
+                ctx: this.ctx,
+                currentPoint: snapshot.points.current,
+                prevPoint: snapshot.points.previous
+            });
+        });
+    }
+
+
+    public undo() {
+        if (this.state.currentIndex >= 0) {
+            this.state.currentIndex--;
+            this.replaySnapshots();
+        }
+    }
+
+    public redo() {
+        if (this.state.currentIndex < this.state.snapshots.length - 1) {
+            this.state.currentIndex++;
+            this.replaySnapshots();
+        }
+    }
+
+}
+
 
 export class DrawMethods {
     lineWidth: number;
@@ -30,7 +164,7 @@ export class DrawMethods {
     public drawLine = ({ ctx, currentPoint, prevPoint }: Draw) => {
         const { x: currX, y: currY } = currentPoint;
         let startPoint = prevPoint ?? currentPoint;
-        
+
         if (!ctx) return;
 
         ctx.beginPath();
@@ -38,7 +172,7 @@ export class DrawMethods {
         ctx.strokeStyle = this.lineColor;
         ctx.lineCap = 'round';    // Add round line caps for smoother lines
         ctx.lineJoin = 'round';   // Add round line joins for smoother lines
-        
+
         ctx.moveTo(startPoint.x, startPoint.y);
         ctx.lineTo(currX, currY);
         ctx.stroke();
@@ -79,11 +213,11 @@ export class DrawMethods {
     public fillPaint = ({ ctx, currentPoint }: Draw) => {
         try {
             if (!ctx) return;
-            
+
             const { x, y } = currentPoint;
             const roundedX = Math.floor(x);
             const roundedY = Math.floor(y);
-            
+
             const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
             const pixels = imageData.data;
 
@@ -128,8 +262,8 @@ export class DrawMethods {
                 // Modified fill condition to better handle transparency
                 const isTargetTransparent = targetColor.a < 10;
                 const isCurrentTransparent = currentColor.a < 10;
-                const shouldFill = isTargetTransparent 
-                    ? isCurrentTransparent 
+                const shouldFill = isTargetTransparent
+                    ? isCurrentTransparent
                     : this.compareColors({ color_one: currentColor, color_two: targetColor });
 
                 if (!shouldFill) continue;

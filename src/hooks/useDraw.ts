@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 
 type Tool = 'line' | 'fill';
 
+// TODO - Make it so that, i will pass websocketUrl in the useDraw hook
 export const useDraw = (
     onDraw: ({ ctx, currentPoint, prevPoint }: Draw) => void,
     onFill: ({ ctx, currentPoint }: Draw) => void,
