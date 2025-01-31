@@ -59,7 +59,7 @@ export class DrawingManager {
     public createSnapshot({ toolType, currentPoint, prevPoint, color, lineWidth }: {
         toolType: DrawingTool,
         currentPoint: Point,
-        prevPoint: Point,
+        prevPoint: Point | null,
         color: HexString,
         lineWidth: number
     }): Snapshot {
@@ -99,7 +99,7 @@ export class DrawingManager {
             prevPoint: snapshot.points.previous
         })
 
-        this.state.snapshots.push(snapshot);
+        this.state.snapshots.push(snapshot);    
         this.state.currentIndex++
     }
 
@@ -116,7 +116,7 @@ export class DrawingManager {
             drawMethod({
                 ctx: this.ctx,
                 currentPoint: snapshot.points.current,
-                prevPoint: snapshot.points.previous
+                prevPoint: snapshot.points.previous,
             });
         });
     }

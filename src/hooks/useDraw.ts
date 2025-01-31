@@ -1,3 +1,4 @@
+import { DrawingManager, DrawingTool } from "@/utils/draw";
 import { useEffect, useRef, useState } from "react"
 
 type Tool = 'line' | 'fill';
@@ -6,11 +7,29 @@ type Tool = 'line' | 'fill';
 export const useDraw = (
     onDraw: ({ ctx, currentPoint, prevPoint }: Draw) => void,
     onFill: ({ ctx, currentPoint }: Draw) => void,
-    tool: Tool = 'line'
+    tool: Tool = 'line',
+    websocketUrl: string | null
 ) => {
     const [mouseDown, setMouseDown] = useState<boolean>(false);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const prevPoint = useRef<null | Point>(null);
+    const drawingManagerRef = useRef<DrawingManager | null>(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas || !websocketUrl) {
+            return;
+        }
+
+        const ctx = canvas.getContext('2d')
+        if (!ctx) return;
+
+        drawingManagerRef.current = new DrawingManager({ ctx, websocketUrl })
+
+        return () => {
+            drawingManagerRef.current = null
+        };
+    }, [websocketUrl])
 
     const getCanvasCoordinates = (e: MouseEvent): Point | null => {
         const canvas = canvasRef.current;
@@ -24,13 +43,21 @@ export const useDraw = (
     };
 
     const onMouseDown = (e: MouseEvent) => {
+        const currentPoint = getCanvasCoordinates(e);
+        const ctx = canvasRef.current?.getContext('2d');
+
+        if (!ctx || !currentPoint || !drawingManagerRef.current) return;
+
         if (tool === 'fill') {
-            const currentPoint = getCanvasCoordinates(e);
-            const ctx = canvasRef.current?.getContext('2d');
-
-            if (!ctx || !currentPoint) return;
-
             onFill({ ctx, currentPoint, prevPoint: null });
+            // Create snapshot using DrawingManager
+            drawingManagerRef.current.createSnapshot({
+                toolType: (DrawingTool.BucketTool),
+                currentPoint,
+                prevPoint: null,
+                color: ctx.strokeStyle.toString() as HexString,
+                lineWidth: ctx.lineWidth
+            });
             return;
         }
 
@@ -49,7 +76,7 @@ export const useDraw = (
             const currentPoint = getCanvasCoordinates(e);
             const ctx = canvasRef.current?.getContext('2d');
 
-            if (!ctx || !currentPoint) return;
+            if (!ctx || !currentPoint || !drawingManagerRef.current) return;
 
             onDraw({
                 ctx,
@@ -57,6 +84,14 @@ export const useDraw = (
                 prevPoint: prevPoint.current
             });
 
+            // Create snapshot using DrawingManager
+            drawingManagerRef.current.createSnapshot({
+                toolType: (DrawingTool.PaintBrush),
+                currentPoint,
+                prevPoint: null,
+                color: ctx.strokeStyle.toString() as HexString,
+                lineWidth: ctx.lineWidth
+            });
             prevPoint.current = currentPoint;
         };
 
