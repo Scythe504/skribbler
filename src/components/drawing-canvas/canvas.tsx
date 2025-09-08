@@ -13,7 +13,8 @@ export const DrawingCanvas = () => {
     const { canvasRef, onMouseDown } = useDraw(
         drawMethod.getDrawMethod(drawTool),
         drawMethod.getDrawMethod(drawTool),
-        drawTool === DrawingTool.BucketTool ? 'fill' : 'line'
+        drawTool === DrawingTool.BucketTool ? 'fill' : 'line',
+        "http://localhost:8080/ws/wes432"
     )
     
     return <div>
