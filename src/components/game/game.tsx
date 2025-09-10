@@ -1,6 +1,6 @@
 import { Players } from "@/components/player/players"
-import { DrawingCanvas } from "@/components/drawing-canvas/canvas"
-import { DrawMethods } from "../drawing-canvas/draw-methods"
+import { PixelArtCanvas } from "@/components/drawing-canvas/canvas"
+// import { DrawMethods } from "../drawing-canvas/draw-methods"
 import { ColorPicker } from "../drawing-canvas/color-picker"
 import { WordModal } from "../words/word-modal"
 
@@ -14,8 +14,8 @@ export const Game = () => {
         <div className="flex flex-row items-start w-full px-8">
             <Players />
             <div>
-                <DrawingCanvas />
-                <DrawMethods />
+                <PixelArtCanvas />
+                {/* <DrawMethods /> */}
                 <ColorPicker />
             </div>
         </div>

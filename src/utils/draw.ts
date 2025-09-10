@@ -1,343 +1,275 @@
+import {
+    PixelTool,
+    PixelData,
+    PixelBatch,
+    GridConfig,
+    GridState,
+    PixelMessage
+} from "@/types/pixelArt"
+import { GridUtils } from "@/utils/gridUtils"
 
-export enum DrawingTool {
-    PaintBrush = "PaintBrushTool",
-    BucketTool = "BucketTool",
-    EraseTool = "EraseTool",
-}
-export interface DrawData {
-    x: Number;
-    y: Number;
-    color: String;
-    lineWidth: Number;
-    isDragging: Boolean;
-}
-
-export interface Snapshot {
-    toolType: DrawingTool;
-    points: {
-        current: Point;
-        previous: Point | null;
-    };
-    color: HexString;
-    lineWidth: number;
-    timestamp: number;
-}
-
-interface DrawingState {
-    snapshots: Snapshot[];
-    currentIndex: number;
-}
-
-export class DrawingManager {
-    private drawMethods: DrawMethods;
-    private state: DrawingState;
-    private ws: WebSocket;
+export class PixelDrawingManager {
+    private config: GridConfig;
+    private gridUtils: GridUtils;
+    private state: GridState;
     private ctx: CanvasRenderingContext2D;
+    private ws: WebSocket | null = null;
 
-    constructor({ ctx, websocketUrl }: {
-        ctx: CanvasRenderingContext2D,
-        websocketUrl: string
-    }) {
-        this.drawMethods = new DrawMethods('000000')
-        this.state = {
-            snapshots: [],
-            currentIndex: -1,
-        }
-        this.ws = new WebSocket(websocketUrl)
-        this.ctx = ctx
+    constructor(config: GridConfig, ctx: CanvasRenderingContext2D, ws?: WebSocket) {
+        this.config = config;
+        this.gridUtils = new GridUtils(config);
+        this.state = { pixels: new Map() };
+        this.ctx = ctx;
+        this.ws = ws || null
 
-        this.setupWebSocket()
+        this.setupCanvas();
+    }
+    private setupCanvas() {
+        this.ctx.imageSmoothingEnabled = false;
+        this.clearCanvas();
+        this.drawGrid();
     }
 
-    private setupWebSocket() {
-        this.ws.onmessage = (event) => {
-            const snapshot = JSON.parse(event.data)
-            this.applyRemoteSnapshot(snapshot);
-        }
+
+    clearCanvas() {
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillRect(0, 0, this.config.canvasWidth, this.config.canvasHeight);
     }
+    drawGrid() {
+        this.ctx.strokeStyle = "#d1d5db"
+        this.ctx.lineWidth = 0.5
+        this.ctx.globalAlpha = 0.5
 
-    public createSnapshot({ toolType, currentPoint, prevPoint, color, lineWidth }: {
-        toolType: DrawingTool,
-        currentPoint: Point,
-        prevPoint: Point | null,
-        color: HexString,
-        lineWidth: number
-    }): Snapshot {
-
-        const snapshot: Snapshot = {
-            toolType,
-            points: {
-                current: currentPoint,
-                previous: prevPoint,
-            },
-            color,
-            lineWidth,
-            timestamp: Date.now()
+        for (let x = 0; x <= this.config.canvasWidth; x += this.config.gridSize) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(x + 0.5, 0);
+            this.ctx.lineTo(x + 0.5, this.config.canvasHeight);
+            this.ctx.stroke();
         }
 
-        this.state.snapshots.push(snapshot);
-        this.state.currentIndex++
-
-        this.ws.send(JSON.stringify({
-            type: "draw",
-            data: snapshot
-        }))
-
-        return snapshot
-    }
-
-    public applyRemoteSnapshot(snapshot: Snapshot) {
-        // TODO - improve color replacing
-        const tempDrawMethods = new DrawMethods(snapshot.color.replace('#', ''))
-        tempDrawMethods.lineWidth = snapshot.lineWidth
-
-        const drawMethod = tempDrawMethods.getDrawMethod(snapshot.toolType);
-
-        drawMethod({
-            ctx: this.ctx,
-            currentPoint: snapshot.points.current,
-            prevPoint: snapshot.points.previous
-        })
-
-        this.state.snapshots.push(snapshot);    
-        this.state.currentIndex++
-    }
-
-    public replaySnapshots() {
-        // Clear canvas first
-        this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
-
-        // Replay all snapshots
-        this.state.snapshots.forEach(snapshot => {
-            this.drawMethods.lineColor = snapshot.color;
-            this.drawMethods.lineWidth = snapshot.lineWidth;
-
-            const drawMethod = this.drawMethods.getDrawMethod(snapshot.toolType);
-            drawMethod({
-                ctx: this.ctx,
-                currentPoint: snapshot.points.current,
-                prevPoint: snapshot.points.previous,
-            });
-        });
-    }
-
-
-    public undo() {
-        if (this.state.currentIndex >= 0) {
-            this.state.currentIndex--;
-            this.replaySnapshots();
+        for (let y = 0; y <= this.config.canvasHeight; y += this.config.gridSize) {
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, y+0.5);
+            this.ctx.lineTo(this.config.canvasWidth, y + 0.5);
+            this.ctx.stroke();
         }
+
+        this.ctx.globalAlpha = 1;
     }
 
-    public redo() {
-        if (this.state.currentIndex < this.state.snapshots.length - 1) {
-            this.state.currentIndex++;
-            this.replaySnapshots();
+    private drawPixel(gridX: number, gridY: number, color: string) {
+        const { x, y } = this.gridUtils.gridToCanvas(gridX, gridY);
+
+        this.ctx.fillStyle = color;
+        this.ctx.fillRect(x, y, this.config.gridSize, this.config.gridSize);
+
+        const key = this.gridUtils.gridKey(gridX, gridY);
+        this.state.pixels.set(key, color);
+    }
+
+    private erasePixel(gridX: number, gridY: number) {
+        const { x, y } = this.gridUtils.gridToCanvas(gridX, gridY);
+
+        // Clear the pixel area
+        this.ctx.fillStyle = 'white';
+        this.ctx.fillRect(x, y, this.config.gridSize, this.config.gridSize);
+
+        // Redraw grid lines for this cell
+        this.ctx.strokeStyle = "#d1d5db";
+        this.ctx.lineWidth = 1;
+        this.ctx.globalAlpha = 0.3;
+        
+        // Draw the borders of this cell
+        this.ctx.beginPath();
+        // Top border
+        this.ctx.moveTo(x + 0.5, y + 0.5);
+        this.ctx.lineTo(x + this.config.gridSize + 0.5, y + 0.5);
+        // Right border
+        this.ctx.moveTo(x + this.config.gridSize + 0.5, y + 0.5);
+        this.ctx.lineTo(x + this.config.gridSize + 0.5, y + this.config.gridSize + 0.5);
+        // Bottom border
+        this.ctx.moveTo(x + this.config.gridSize + 0.5, y + this.config.gridSize + 0.5);
+        this.ctx.lineTo(x + 0.5, y + this.config.gridSize + 0.5);
+        // Left border
+        this.ctx.moveTo(x + 0.5, y + this.config.gridSize + 0.5);
+        this.ctx.lineTo(x + 0.5, y + 0.5);
+        this.ctx.stroke();
+        
+        this.ctx.globalAlpha = 1;
+
+        // Remove from state
+        const key = this.gridUtils.gridKey(gridX, gridY);
+        this.state.pixels.delete(key);
+    }
+
+    private floodFill(startX: number, startY: number, newColor: string) {
+        const startKey = this.gridUtils.gridKey(startX, startY);
+        const targetColor = this.state.pixels.get(startKey) || 'transparent';
+
+        if (targetColor === newColor) {
+            return;
         }
-    }
 
-}
+        const pixelsToFill: Array<{ gridX: number, gridY: number }> = [];
+        const stack = [{ gridX: startX, gridY: startY }];
+        const visited = new Set<string>();
 
+        while (stack.length > 0) {
+            const current = stack.pop()!;
+            const key = this.gridUtils.gridKey(current.gridX, current.gridY);
 
-export class DrawMethods {
-    lineWidth: number;
-    lineColor: HexString;
+            if (visited.has(key)) continue;
+            visited.add(key);
+            const currentColor = this.state.pixels.get(key) || 'transparent';
+            // Check if this pixel should be filled
+            if (currentColor !== targetColor) continue;
 
-    public constructor(color: string) {
-        this.lineWidth = 5;
-        this.lineColor = `#${color}`;  // Default to black instead of white for better visibility
-    }
+            pixelsToFill.push(current);
 
-    public getDrawMethod = (tool: DrawingTool) => {
-        switch (tool) {
-            case DrawingTool.PaintBrush:
-                return this.drawLine.bind(this);
-            case DrawingTool.EraseTool:
-                return this.eraseLine.bind(this);
-            case DrawingTool.BucketTool:
-                return this.fillPaint.bind(this);
-            default:
-                return this.drawLine.bind(this);
-        }
-    }
-
-    public drawLine = ({ ctx, currentPoint, prevPoint }: Draw) => {
-        const { x: currX, y: currY } = currentPoint;
-        let startPoint = prevPoint ?? currentPoint;
-
-        if (!ctx) return;
-
-        ctx.beginPath();
-        ctx.lineWidth = this.lineWidth;
-        ctx.strokeStyle = this.lineColor;
-        ctx.lineCap = 'round';    // Add round line caps for smoother lines
-        ctx.lineJoin = 'round';   // Add round line joins for smoother lines
-
-        ctx.moveTo(startPoint.x, startPoint.y);
-        ctx.lineTo(currX, currY);
-        ctx.stroke();
-
-        // Draw end cap
-        ctx.fillStyle = this.lineColor;
-        ctx.beginPath();
-        ctx.arc(currX, currY, this.lineWidth / 2, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    public eraseLine = ({ ctx, currentPoint, prevPoint }: Draw) => {
-        const { x: currX, y: currY } = currentPoint;
-        let startPoint = prevPoint ?? currentPoint;
-
-        if (!ctx) return;
-
-        ctx.save();
-        ctx.globalCompositeOperation = 'destination-out';
-
-        ctx.beginPath();
-        ctx.lineWidth = this.lineWidth;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-
-        ctx.moveTo(startPoint.x, startPoint.y);
-        ctx.lineTo(currX, currY);
-        ctx.stroke();
-
-        // Draw end cap for eraser
-        ctx.beginPath();
-        ctx.arc(currX, currY, this.lineWidth / 2, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.restore();
-    }
-
-    public fillPaint = ({ ctx, currentPoint }: Draw) => {
-        try {
-            if (!ctx) return;
-
-            const { x, y } = currentPoint;
-            const roundedX = Math.floor(x);
-            const roundedY = Math.floor(y);
-
-            const imageData = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
-            const pixels = imageData.data;
-
-            const targetColor = this.getPixel({
-                pixels,
-                x: roundedX,
-                y: roundedY,
-                width: ctx.canvas.width
-            });
-
-            const fillColor = this.hexToRgba(this.lineColor);
-
-            // Don't fill if clicking on the same color
-            if (this.compareColors({
-                color_one: fillColor,
-                color_two: targetColor
-            })) return;
-
-            const pixelsToCheck: Point[] = [{ x: roundedX, y: roundedY }];
-            const visited = new Set<string>();
-
-            while (pixelsToCheck.length > 0) {
-                const currentPixel = pixelsToCheck.pop()!;
-                const px = currentPixel.x;
-                const py = currentPixel.y;
-
-                if (px < 0 || px >= ctx.canvas.width || py < 0 || py >= ctx.canvas.height) {
-                    continue;
+            // Add neighbors to stack
+            const neighbors = this.gridUtils.getNeighbors(current.gridX, current.gridY);
+            for (const neighbor of neighbors) {
+                const neighborKey = this.gridUtils.gridKey(neighbor.gridX, neighbor.gridY);
+                if (!visited.has(neighborKey)) {
+                    stack.push(neighbor);
                 }
+            }
+        }
 
-                const key = `${px},${py}`;
-                if (visited.has(key)) continue;
-                visited.add(key);
+        // Fill all pixels at once
+        for (const pixel of pixelsToFill) {
+            this.drawPixel(pixel.gridX, pixel.gridY, newColor);
+        }
 
-                const currentColor = this.getPixel({
-                    pixels,
-                    x: px,
-                    y: py,
-                    width: ctx.canvas.width
-                });
+        return pixelsToFill;
+    }
 
-                // Modified fill condition to better handle transparency
-                const isTargetTransparent = targetColor.a < 10;
-                const isCurrentTransparent = currentColor.a < 10;
-                const shouldFill = isTargetTransparent
-                    ? isCurrentTransparent
-                    : this.compareColors({ color_one: currentColor, color_two: targetColor });
+    public placePixel(gridX: number, gridY: number, color: string, broadcast = true) {
+        this.drawPixel(gridX, gridY, color);
 
-                if (!shouldFill) continue;
+        if (broadcast && this.ws && this.ws.readyState === WebSocket.OPEN) {
+            const pixelData: PixelData = {
+                type: 'place',
+                x: gridX,
+                y: gridY,
+                color,
+                timestamp: Date.now()
+            };
 
-                this.setPixel({
-                    pixels,
-                    x: px,
-                    y: py,
-                    color: fillColor,
-                    width: ctx.canvas.width
-                });
-
-                // Add neighbors in all 4 directions
-                pixelsToCheck.push(
-                    { x: px + 1, y: py },
-                    { x: px - 1, y: py },
-                    { x: px, y: py + 1 },
-                    { x: px, y: py - 1 }
-                );
+            const message = {
+                type: "pixel_draw",
+                data: pixelData
             }
 
-            ctx.putImageData(imageData, 0, 0);
-        } catch (e) {
-            console.error('Error in fillPaint:', e);
+            this.ws.send(JSON.stringify(message));
         }
     }
 
-    private getPixel({ pixels, x, y, width }: {
-        pixels: Uint8ClampedArray,
-        x: number,
-        y: number,
-        width: number
-    }): Rgba {
-        const index = (y * width + x) * 4;
-        return {
-            r: pixels[index] || 0,
-            g: pixels[index + 1] || 0,
-            b: pixels[index + 2] || 0,
-            a: pixels[index + 3] || 0
-        };
+    public erasePixelAt(gridX: number, gridY: number, broadcast = true) {
+        this.erasePixel(gridX, gridY);
+
+        if (broadcast && this.ws && this.ws.readyState === WebSocket.OPEN) {
+            const pixelData: PixelData = {
+                type: 'erase',
+                x: gridX,
+                y: gridY,
+                color: '',
+                timestamp: Date.now()
+            };
+
+            // UPDATED: Send with pixel_draw message type
+            const message = {
+                type: 'pixel_draw',
+                data: pixelData
+            };
+
+            this.ws.send(JSON.stringify(message));
+        }
     }
 
-    private setPixel({ pixels, x, y, color, width }: {
-        pixels: Uint8ClampedArray,
-        x: number,
-        y: number,
-        color: Rgba,
-        width: number
-    }) {
-        const index = (y * width + x) * 4;
-        pixels[index] = color.r;
-        pixels[index + 1] = color.g;
-        pixels[index + 2] = color.b;
-        pixels[index + 3] = color.a;
+    public fillArea(gridX: number, gridY: number, color: string, broadcast = true) {
+        const filledPixels = this.floodFill(gridX, gridY, color)
+        if (broadcast && filledPixels && filledPixels.length > 0 &&
+            this.ws && this.ws.readyState === WebSocket.OPEN) {
+            const pixelBatch: PixelBatch = {
+                type: 'batch_place',
+                pixels: filledPixels,
+                color,
+                timestamp: Date.now(),
+            };
+
+            // UPDATED: Send with pixel_draw message type
+            const message = {
+                type: 'pixel_draw',
+                data: pixelBatch
+            };
+
+            this.ws.send(JSON.stringify(message));
+        }
     }
 
-    private compareColors({ color_one, color_two }: {
-        color_one: Rgba,
-        color_two: Rgba
-    }): boolean {
-        const tolerance = 5;
-        return Math.abs(color_one.r - color_two.r) <= tolerance &&
-            Math.abs(color_one.g - color_two.g) <= tolerance &&
-            Math.abs(color_one.b - color_two.b) <= tolerance &&
-            Math.abs(color_one.a - color_two.a) <= tolerance;
+    public placeBatch(pixels: Array<{gridX: number, gridY: number}>, color: string, broadcast = true){
+        for (const pixel of pixels) {
+            this.drawPixel(pixel.gridX, pixel.gridY, color);
+        }
+
+        if (broadcast && this.ws && this.ws.readyState === WebSocket.OPEN) {
+            const message: PixelBatch = {
+                type: 'batch_place',
+                pixels,
+                color,
+                timestamp: Date.now(),
+            }
+            this.ws.send(JSON.stringify(message));
+        }
     }
 
-    private hexToRgba(hex: string): Rgba {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? {
-            r: parseInt(result[1], 16),
-            g: parseInt(result[2], 16),
-            b: parseInt(result[3], 16),
-            a: 255
-        } : { r: 0, g: 0, b: 0, a: 255 };
+    clearPixels() {
+        // Clear the canvas completely
+        this.clearCanvas();
+        // Redraw the grid
+        this.drawGrid();
+        // Clear the pixel state
+        this.state.pixels.clear();
+    }
+
+    private handleRemoteMessage(message: PixelMessage) {
+        if ('pixels' in message) {
+            // batch operation
+            for (const pixel of message.pixels) {
+                if (message.type === 'batch_place') {
+                    this.drawPixel(pixel.gridX, pixel.gridY, message.color);
+                } else if (message.type === 'batch_erase'){
+                    this.erasePixel(pixel.gridX, pixel.gridY)
+                }
+            }
+        } else {
+            if (message.type === 'place') {
+                this.drawPixel(message.x, message.y, message.color);
+            } else if (message.type === 'erase'){
+                this.erasePixel(message.x, message.y);
+            }
+        }
+    }
+
+    public getGridPosition(mouseX: number, mouseY: number) {
+        return this.gridUtils.mouseToGrid(mouseX, mouseY);
+    }
+
+    public redrawCanvas() {
+        this.clearCanvas();
+        this.drawGrid();
+        
+        // Redraw all pixels
+        for (const [key, color] of this.state.pixels) {
+            const { gridX, gridY } = this.gridUtils.parseGridKey(key);
+            this.drawPixel(gridX, gridY, color);
+        }
+    }
+
+    public destroy() {
+        if (this.ws) {
+            this.ws.close();
+        }
     }
 }
