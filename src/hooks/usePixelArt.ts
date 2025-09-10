@@ -11,21 +11,21 @@ interface UsePixelArtProps {
     websocketUrl?: string;
 }
 
-export const usePixelArt = ({gridConfig, websocketUrl}: UsePixelArtProps) => {
+export const usePixelArt = ({ gridConfig, websocketUrl }: UsePixelArtProps) => {
     const [ws] = useAtom(wsAtom)
     const [atomColor] = useAtom(currentColor)
     const [atomTool] = useAtom(currentTool)
-    
+
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const managerRef = useRef<PixelDrawingManager | null>(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const dragPixels = useRef<Set<string>>(new Set());
 
     // Convert hex color from atom (without #) to full hex color (with #)
-    const currentColors = `#${atomColor}`;
-    const currentTools = atomTool;
+    const localCurrentColor = `#${atomColor}`;
+    const localCurrentTool = atomTool;
 
-    useEffect(()=> {
+    useEffect(() => {
         const canvas = canvasRef.current;
 
         if (!canvas) return;
@@ -39,15 +39,15 @@ export const usePixelArt = ({gridConfig, websocketUrl}: UsePixelArtProps) => {
 
         managerRef.current = new PixelDrawingManager(gridConfig, ctx, ws!);
 
-        return ()=> {
+        return () => {
             if (managerRef.current) {
                 managerRef.current.destroy();
                 managerRef.current = null;
             }
         };
-    },[gridConfig, websocketUrl])
+    }, [gridConfig, websocketUrl])
 
-    const getMousePos = useCallback((e: MouseEvent): {x: number, y: number} => {
+    const getMousePos = useCallback((e: MouseEvent): { x: number, y: number } => {
         const canvas = canvasRef.current;
         if (!canvas) return { x: 0, y: 0 };
 
@@ -57,18 +57,18 @@ export const usePixelArt = ({gridConfig, websocketUrl}: UsePixelArtProps) => {
             x: e.clientX - rect.left,
             y: e.clientY - rect.top
         }
-    },[])
+    }, [])
 
-    const handleMouseDown = useCallback((e: MouseEvent)=> {
+    const handleMouseDown = useCallback((e: MouseEvent) => {
         if (e.button !== 0 || !managerRef.current) return;
 
         const mousePos = getMousePos(e);
         const gridPos = managerRef.current.getGridPosition(mousePos.x, mousePos.y)
-        
+
         if (!gridPos) return;
 
-        if (currentTools === PixelTool.Fill) {
-            managerRef.current.fillArea(gridPos.gridX, gridPos.gridY, currentColors)
+        if (localCurrentTool === PixelTool.Fill) {
+            managerRef.current.fillArea(gridPos.gridX, gridPos.gridY, localCurrentColor)
         } else {
             setIsDrawing(true);
             dragPixels.current.clear();
@@ -76,22 +76,22 @@ export const usePixelArt = ({gridConfig, websocketUrl}: UsePixelArtProps) => {
             const pixelKey = `${gridPos.gridX},${gridPos.gridY}`;
             dragPixels.current.add(pixelKey);
 
-            if (currentTools === PixelTool.Pixel) {
-                managerRef.current.placePixel(gridPos.gridX, gridPos.gridY, currentColors);
-            } else if (currentTools === PixelTool.Eraser) {
+            if (localCurrentTool === PixelTool.Pixel) {
+                managerRef.current.placePixel(gridPos.gridX, gridPos.gridY, localCurrentColor);
+            } else if (localCurrentTool === PixelTool.Eraser) {
                 managerRef.current.erasePixelAt(gridPos.gridX, gridPos.gridY)
             }
         }
-    },[currentColor, currentTool, getMousePos])
+    }, [localCurrentColor, localCurrentTool, getMousePos])
 
     const handleMouseMove = useCallback((e: MouseEvent) => {
         if (!isDrawing || !managerRef.current) return;
-        if(currentTools === PixelTool.Fill) return;
-        
+        if (localCurrentTool === PixelTool.Fill) return;
+
         const mousePos = getMousePos(e);
         const gridPos = managerRef.current.getGridPosition(mousePos.x, mousePos.y);
 
-        if(!gridPos) return;
+        if (!gridPos) return;
 
         const pixelKey = `${gridPos.gridX},${gridPos.gridY}`;
 
@@ -99,44 +99,52 @@ export const usePixelArt = ({gridConfig, websocketUrl}: UsePixelArtProps) => {
         if (!dragPixels.current.has(pixelKey)) {
             dragPixels.current.add(pixelKey);
 
-            if (currentTools === PixelTool.Pixel) {
-                managerRef.current.placePixel(gridPos.gridX, gridPos.gridY, currentColors);
-            } else if (currentTools === PixelTool.Eraser) {
+            if (localCurrentTool === PixelTool.Pixel) {
+                managerRef.current.placePixel(gridPos.gridX, gridPos.gridY, localCurrentColor);
+            } else if (localCurrentTool === PixelTool.Eraser) {
                 managerRef.current.erasePixelAt(gridPos.gridX, gridPos.gridY)
             }
         }
-    }, [isDrawing, currentTool, currentColor, getMousePos]);
+    }, [isDrawing, localCurrentTool, localCurrentColor, getMousePos]);
 
-    const handleMouseUp = useCallback(()=> {
+    const handleMouseUp = useCallback(() => {
         setIsDrawing(false);
         dragPixels.current.clear();
-    },[])
+    }, [])
 
-    useEffect(()=> {
+    useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        const mouseDownHandler = (e: MouseEvent) => handleMouseDown(e)
+        const mouseDownHandler = (e: MouseEvent) => {
+            e.preventDefault();
+            handleMouseDown(e);
+        }
         const mouseMoveHandler = (e: MouseEvent) => handleMouseMove(e)
-        const mouseUpHandler = ()=> handleMouseUp()
+        const mouseUpHandler = () => handleMouseUp()
+
+        // Prevent context menu on right click
+        const contextMenuHandler = (e: MouseEvent) => e.preventDefault();
 
         canvas.addEventListener('mousedown', mouseDownHandler)
         canvas.addEventListener('mousemove', mouseMoveHandler)
+        canvas.addEventListener('contextmenu', contextMenuHandler)
 
         document.addEventListener('mouseup', mouseUpHandler)
         document.addEventListener('mouseleave', mouseUpHandler)
 
-        return ()=> {
+        return () => {
             canvas.removeEventListener('mousedown', mouseDownHandler);
             canvas.removeEventListener('mousemove', mouseMoveHandler);
+            canvas.removeEventListener('contextmenu', contextMenuHandler);
             document.removeEventListener('mouseup', mouseUpHandler);
             document.removeEventListener('mouseleave', mouseUpHandler);
         }
-    },[handleMouseDown, handleMouseMove, handleMouseUp])
+    }, [handleMouseDown, handleMouseMove, handleMouseUp])
 
-    const onMouseDown = useCallback((e: React.MouseEvent)=> {
+    const onMouseDown = useCallback((e: React.MouseEvent) => {
         handleMouseDown(e.nativeEvent);
-    },[handleMouseDown])
+    }, [handleMouseDown])
 
     return {
         canvasRef,

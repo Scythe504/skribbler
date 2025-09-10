@@ -24,17 +24,28 @@ export class PixelDrawingManager {
 
         this.setupCanvas();
     }
+    
     private setupCanvas() {
         this.ctx.imageSmoothingEnabled = false;
         this.clearCanvas();
         this.drawGrid();
     }
 
-
     clearCanvas() {
         this.ctx.fillStyle = 'white';
         this.ctx.fillRect(0, 0, this.config.canvasWidth, this.config.canvasHeight);
     }
+
+    // New method to clear only pixels but preserve grid
+    clearPixels() {
+        // Clear the canvas completely
+        this.clearCanvas();
+        // Redraw the grid
+        this.drawGrid();
+        // Clear the pixel state
+        this.state.pixels.clear();
+    }
+
     drawGrid() {
         this.ctx.strokeStyle = "#d1d5db"
         this.ctx.lineWidth = 0.5
@@ -49,7 +60,7 @@ export class PixelDrawingManager {
 
         for (let y = 0; y <= this.config.canvasHeight; y += this.config.gridSize) {
             this.ctx.beginPath();
-            this.ctx.moveTo(0, y+0.5);
+            this.ctx.moveTo(0, y + 0.5);
             this.ctx.lineTo(this.config.canvasWidth, y + 0.5);
             this.ctx.stroke();
         }
@@ -177,7 +188,6 @@ export class PixelDrawingManager {
                 timestamp: Date.now()
             };
 
-            // UPDATED: Send with pixel_draw message type
             const message = {
                 type: 'pixel_draw',
                 data: pixelData
@@ -198,7 +208,6 @@ export class PixelDrawingManager {
                 timestamp: Date.now(),
             };
 
-            // UPDATED: Send with pixel_draw message type
             const message = {
                 type: 'pixel_draw',
                 data: pixelBatch
@@ -224,15 +233,6 @@ export class PixelDrawingManager {
         }
     }
 
-    clearPixels() {
-        // Clear the canvas completely
-        this.clearCanvas();
-        // Redraw the grid
-        this.drawGrid();
-        // Clear the pixel state
-        this.state.pixels.clear();
-    }
-
     private handleRemoteMessage(message: PixelMessage) {
         if ('pixels' in message) {
             // batch operation
@@ -253,7 +253,9 @@ export class PixelDrawingManager {
     }
 
     public getGridPosition(mouseX: number, mouseY: number) {
-        return this.gridUtils.mouseToGrid(mouseX, mouseY);
+        const result = this.gridUtils.mouseToGrid(mouseX, mouseY);
+        console.log('Grid position:', { mouseX, mouseY, result });
+        return result;
     }
 
     public redrawCanvas() {
