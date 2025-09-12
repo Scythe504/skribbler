@@ -1,5 +1,4 @@
 'use client'
-
 import { Button } from "@/components/ui/button"
 import {
     Dialog,
@@ -14,12 +13,11 @@ import { useAtom } from "jotai"
 import { useEffect, useState } from "react"
 import { WordPlaceholder } from "./word-placeholder"
 
-export const WordModal = () => {
+export const WordModal = ({ words }: { words: string[] }) => {
     const [clock, setClock] = useState<number>(wordSelectTime / COUNTDOWN_DENOMINATOR)
     const [timerStart, setTimerStart] = useState(false)
     const [showModal, setShowModal] = useState(false)
     const [word, setWord] = useAtom(chosenWord)
-    const words = ["Fountain", "Saturn", "Mickey Mouse"]
 
     const handleClick = () => {
         setTimerStart(true)
@@ -66,7 +64,7 @@ export const WordModal = () => {
                             onClick={handleClick}
                         >
                             Pick a word
-                        </Button> : 
+                        </Button> :
                         <WordPlaceholder
                             word={word}
                         />

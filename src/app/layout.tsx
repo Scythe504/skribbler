@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { abaddon_bold } from "../utils/font";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { myStore } from "@/store/store";
+import { Provider } from "jotai";
 
 // const geistSans = Geist({
 //   variable: "--font-geist-sans",

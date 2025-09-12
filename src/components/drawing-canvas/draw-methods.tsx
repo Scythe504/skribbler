@@ -9,15 +9,15 @@ import { cn } from "@/lib/utils"
 const MethodObj = {
   paintBucket: {
     tool: PixelTool.Fill,
-    icon: <PaintBucket size={30} />,
+    icon: <PaintBucket size={20} />,
   },
   brushTool: {
     tool: PixelTool.Pixel,
-    icon: <BrushIcon size={30} />,
+    icon: <BrushIcon size={20} />,
   },
   eraseTool: {
     tool: PixelTool.Eraser,
-    icon: <EraserIcon size={30} />,
+    icon: <EraserIcon size={20} />,
   },
 }
 
@@ -37,7 +37,7 @@ export const DrawMethods = () => {
             key={key}
             onClick={() => handler(tool)}
             variant={drawTool === tool ? "secondary" : "outline"}
-            className={cn("p-6")}
+            className={cn("p-4")}
           >
             {icon}
           </Button>
