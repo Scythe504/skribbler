@@ -28,17 +28,9 @@ interface Room {
     // Note: Mutex is not needed in TypeScript as it's a Go concurrency primitive
 }
 
-interface Player {
-    id: string;
-    // Note: WebSocket connection is handled differently in TypeScript
-    room?: Room; // Optional to avoid circular reference issues
-    username: string;
-    score: number;
-}
-
-interface Message<T = any> {
-    type: string;
-    data: T;
+interface Message<T = any, D = any> {
+    type: T;
+    data: D;
 }
 
 interface DrawData {
