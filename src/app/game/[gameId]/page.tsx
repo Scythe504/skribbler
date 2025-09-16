@@ -27,7 +27,7 @@ export default function Home() {
 
   // Extract parameters and build WebSocket URL
   useEffect(() => {
-    const nameFromUrl = searchParams.get("playerName")
+    const nameFromUrl = searchParams.get("username")
     const roomIdFromUrl = gameId as string
 
     console.log("URL params:", { nameFromUrl, roomIdFromUrl })
@@ -168,7 +168,7 @@ export default function Home() {
           {/* Canvas Area - Center */}
           <div className="flex-1 flex justify-center items-center p-4">
             {wsUrl ? (
-              <PixelArtCanvas websocketUrl={wsUrl} />
+              <PixelArtCanvas />
             ) : (
               <div className="text-center p-8 rounded-lg border border-gray-600">
                 <div className="text-lg mb-2">Preparing canvas...</div>

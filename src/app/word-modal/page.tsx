@@ -1,20 +1,9 @@
 'use client'
-import WordModal from "@/components/words/word-modal";
-import { WordPlaceholder } from "@/components/words/word-placeholder";
-import { chosenWord, wordSelectTime } from "@/store/atoms/game";
-import { useAtom } from "jotai";
-import { useEffect, useState } from "react";
+import { WordModal } from "@/components/modals/word-modal";
 
-export default function WordModalDisplay () {
-    const [word, setWord] = useAtom(chosenWord)
-    const [words, setWords] = useState<Array<string>>([])
-    const selectTime = wordSelectTime
-    useEffect(()=> {
-
-    },[])
+export default function WordModalDisplay() {
 
     return <div>
-        <WordPlaceholder word={word}/>
-        <WordModal words={words}/>
+        <WordModal timer={30} words={["house", "cat", "sun"]} />
     </div>
 }

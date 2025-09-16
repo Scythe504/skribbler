@@ -183,7 +183,10 @@ export interface TimerUpdateData {
 
 // ===============================
 // MessageType: "guess_message"
-export type GuessMessageData = PlayerGuess
+export type GuessMessageData = {
+    player_guess: PlayerGuess;
+    guessed_word: string;
+}
 // ===============================
 // MessageType: "guess_result"
 export type GuessResultData = GameResultData
