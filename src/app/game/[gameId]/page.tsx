@@ -1,3 +1,4 @@
+// Updated Main Game Page (page.tsx)
 "use client"
 
 import { PixelArtCanvas } from "@/components/drawing-canvas/canvas"
@@ -11,6 +12,7 @@ import { useAtom } from "jotai"
 import { useParams, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { ChatBox } from "@/components/chat-box/chatbox"
+import { PlayersList } from "@/components/player/players"
 
 export default function Home() {
   const [playerName, setPlayerName] = useAtom(playerNameAtom)
@@ -36,8 +38,15 @@ export default function Home() {
       setPlayerName(nameFromUrl)
       setRoomId(roomIdFromUrl)
 
+      // Detect canvas size from window (or set fixed default)
+      const clientWidth = window.innerWidth || 800
+      const clientHeight = window.innerHeight || 600
+
       // Build the complete WebSocket URL
-      const fullWsUrl = `${baseWsUrl}/ws/${roomIdFromUrl}?username=${encodeURIComponent(nameFromUrl)}`
+      const fullWsUrl = `${baseWsUrl}/ws/${roomIdFromUrl}?username=${encodeURIComponent(
+        nameFromUrl
+      )}&w=${clientWidth}&h=${clientHeight}`
+
       setWsUrl(fullWsUrl)
       console.log("WebSocket URL set:", fullWsUrl)
     } else {
@@ -82,6 +91,8 @@ export default function Home() {
 
       websocket.onmessage = (event) => {
         console.log("WebSocket message received:", event.data)
+        // TODO: Add your message handling logic here
+        // You can either handle messages here or use your useGameHandlers hook
       }
     } catch (error) {
       console.error("WebSocket creation failed:", error)
@@ -116,7 +127,7 @@ export default function Home() {
     <Provider>
       <div className="h-screen w-screen flex flex-col text-white">
         {/* Header */}
-        <div className=" p-4 text-center border-b ">
+        <div className="p-4 text-center border-b">
           <h1 className="text-2xl font-bold mb-2">Pixel Art Game</h1>
           <div className="text-sm text-gray-300">
             Player: <span className="font-medium text-white">{playerName}</span> | Room:{" "}
@@ -125,9 +136,8 @@ export default function Home() {
 
           {/* Connection Status */}
           <div
-            className={`inline-flex items-center gap-2 mt-2 px-3 py-1 rounded-full text-sm ${
-              isConnected ? "bg-green-900 text-green-300" : "bg-yellow-900 text-yellow-300"
-            }`}
+            className={`inline-flex items-center gap-2 mt-2 px-3 py-1 rounded-full text-sm ${isConnected ? "bg-green-900 text-green-300" : "bg-yellow-900 text-yellow-300"
+              }`}
           >
             <div className={`w-2 h-2 rounded-full ${isConnected ? "bg-green-400" : "bg-yellow-400 animate-pulse"}`} />
             {isConnected ? "Connected" : "Connecting..."}
@@ -144,7 +154,7 @@ export default function Home() {
         {/* Main Game Area */}
         <div className="flex-1 flex">
           {/* Tools Panel - Left Side */}
-          <div className="w-64 p-4 border-r ">
+          <div className="w-64 p-4 border-r">
             <Card className="border-gray-600">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg text-white">Tools & Colors</CardTitle>
@@ -178,19 +188,19 @@ export default function Home() {
           </div>
 
           {/* Chat Box - Right Side */}
-          <div className="w-80 p-4  border-l ">
+          <div className="w-80 p-4 border-l">
+            <PlayersList />
+            {/* Pass WebSocket as prop to ChatBox */}
             <ChatBox
-              messages={[]}
-              onSendMessage={(message) => console.log("Send message:", message)}
               currentUsername={playerName}
-              placeholder="Type your guess..."
+              websocket={ws} // Pass the actual WebSocket instance
             />
           </div>
         </div>
 
         {/* Debug info (remove in production) */}
         {process.env.NODE_ENV === "development" && (
-          <div className="p-3  border-t  text-xs text-gray-400">
+          <div className="p-3 border-t text-xs text-gray-400">
             <strong>Debug Info:</strong>
             <br />
             WebSocket URL: {wsUrl || "Not set"}
