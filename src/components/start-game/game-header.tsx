@@ -1,6 +1,6 @@
 import { Palette } from "lucide-react"
 
-export function GameHeader() {
+export function GameHeaderHome() {
   return (
     <div className="text-center space-y-4">
       <div className="flex items-center justify-center gap-3 mb-6">

@@ -38,7 +38,7 @@ export const CircularTimer = ({ duration, isActive, onComplete, className = "", 
   }, [isActive, timeLeft, onComplete])
 
   const progress = ((duration - timeLeft) / duration) * 100
-  const radius = (size - 12) / 2
+  const radius = (size - 4) / 2
   const circumference = 2 * Math.PI * radius
   const strokeDasharray = circumference
   const strokeDashoffset = circumference - (progress / 100) * circumference
@@ -54,7 +54,7 @@ export const CircularTimer = ({ duration, isActive, onComplete, className = "", 
           stroke="currentColor"
           strokeWidth="3"
           fill="none"
-          className="text-border opacity-30"
+          className="text-border opacity-100"
         />
         {/* Progress circle */}
         <circle
@@ -76,13 +76,13 @@ export const CircularTimer = ({ duration, isActive, onComplete, className = "", 
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <div className="text-xs font-mono text-muted-foreground mb-1">[TIMER]</div>
         <div
-          className={`text-3xl font-mono font-bold transition-colors duration-300 ${
+          className={`text-2xl font-mono font-bold transition-colors duration-300 py-2 ${
             timeLeft <= 5 ? "text-destructive animate-pulse" : timeLeft <= 10 ? "text-chart-1" : "text-primary"
           }`}
         >
           {timeLeft.toString().padStart(2, "0")}
         </div>
-        <div className="text-xs font-mono text-muted-foreground mt-1">SEC</div>
+        <div className="text-xs text-muted-foreground mt-1">SEC</div>
       </div>
     </div>
   )

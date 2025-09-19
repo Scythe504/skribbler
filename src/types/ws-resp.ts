@@ -22,6 +22,7 @@ export const MessageType = {
     CanvasCleared: "canvas_cleared",
     DrawingPermissionUpdated: "drawing_permission_updated",
     GameStateUpdate: "game_state_update",
+    WelcomeMessage: "welcome_msg",
 } as const;
 
 // ===============================
@@ -45,6 +46,7 @@ export interface MessagePayloadMap {
     canvas_cleared: CanvasClearedData;
     drawing_permission_updated: DrawingPermissionUpdatedData;
     game_state_update: GameStateUpdateData;
+    welcome_msg: WelcomeMessageData;
 }
 
 export type WebSocketResponse = {
@@ -103,7 +105,7 @@ export interface GameStartedData {
 export interface LobbyResetData {
     message: string;
     room_id: string;
-    timestamp: BigInt;
+    timestamp: number;
     players: Player[] | null;
     phase: GamePhase;
     current_drawer: Player;
@@ -176,7 +178,7 @@ export interface GameEndedData {
 // ===============================
 // MessageType: "timer_update"
 export interface TimerUpdateData {
-    time_remaining: BigInt;
+    time_remaining: number;
     phase: GamePhase;
     is_active: boolean;
 }
@@ -197,7 +199,7 @@ export interface CanvasClearedData {
     room_id: string;
     player_id: string;
     canvas_state: PixelMessage[];
-    timestamp: BigInt;
+    timestamp: number;
 }
 
 // ===============================
@@ -215,9 +217,15 @@ export interface GameStateUpdateData {
     round_number: number;
     max_rounds: number;
     current_drawer: Player | null;
-    time_remaining: BigInt;
+    time_remaining: number;
     players: Player[];
     correct_guessers: PlayerGuess[]
     word: string;
 }
 
+// ===============================
+// MessageType: "welcome_msg"
+export interface WelcomeMessageData {
+    game_state: GameStateUpdateData;
+    canvas_state: PixelMessage[];
+}

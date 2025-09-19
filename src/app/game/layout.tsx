@@ -1,5 +1,8 @@
+'use client'
 import "@/app/globals.css"
 import { ModalRoot } from "@/components/modals/modal-root"
+import { myStore } from "@/store/store"
+import { Provider } from "jotai"
 
 export default function RootLayout({
   children,
@@ -7,11 +10,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
       <body>
-        {children}
-        <ModalRoot /> {/* always mounted */}
+        <Provider store={myStore}>
+          {children}
+          <ModalRoot /> {/* always mounted */}
+        </Provider>
       </body>
-    </html>
   )
 }

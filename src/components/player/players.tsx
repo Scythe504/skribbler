@@ -79,9 +79,9 @@ const CheckIcon = ({ className }: { className?: string }) => (
 
 export const PlayersList = () => {
 	const [gameState] = useAtom(gameStateAtom)
-
+	console.log("Inside PlayersList", { gameState })
 	const getPlayerStatus = (player: Player) => {
-		if (gameState.currentDrawer?.id === player.id) {
+		if (gameState.current_drawer?.id === player.id) {
 			return {
 				status: "DRAWING",
 				textColor: "text-foreground",
@@ -114,9 +114,9 @@ export const PlayersList = () => {
 	}
 
 	return (
-		<div className="bg-card border-2 border-border rounded-none shadow-[4px_4px_0px_0px] shadow-border/50 font-mono p-4 w-full max-w-sm">
+		<div className="rounded-none p-4 w-full max-w-sm">
 			<div className="space-y-3">
-				<div className="text-lg font-mono font-bold text-center text-primary tracking-wider border-b-2 border-border pb-3 mb-4">
+				<div className="text-lg text-center text-primary tracking-wider border-b-2 border-border pb-3 mb-4">
 					PLAYERS
 				</div>
 
@@ -138,10 +138,10 @@ export const PlayersList = () => {
 											<div
 												className={`w-2 h-2 border border-current ${textColor} ${player.is_connected ? "bg-current" : "bg-transparent"
 													} transition-colors duration-200`}
-										  />
+											/>
 										</div>
 
-										<div className={`font-mono font-medium text-sm ${textColor} truncate flex-1`}>
+										<div className={`text-[16px] ${textColor} truncate flex-1`}>
 											{player.username}
 										</div>
 

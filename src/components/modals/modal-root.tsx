@@ -5,6 +5,7 @@ import { modalAtom } from "@/store/atoms/modal"
 import { WordModal } from "@/components/modals/word-modal"
 import { DrawerSelectingModal } from "@/components/modals/drawer-selecting"
 import { GameEndedModal } from "./game-ended"
+import { RoundEnd } from "./round-ended"
 
 export const ModalRoot = () => {
   const [modal, setModal] = useAtom(modalAtom)
@@ -35,7 +36,15 @@ export const ModalRoot = () => {
       return (
         <GameEndedModal {...modal.props} />
       )
-
+    case "roundEnded":
+      return (
+        <RoundEnd 
+         currentRound={1}
+         word="PICKLE" 
+         players={modal.props.final_scores!} 
+         timer={10000} 
+        />
+      )
     default:
       return null
   }

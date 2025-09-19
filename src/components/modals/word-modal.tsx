@@ -3,10 +3,11 @@
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { CircularTimer } from "@/components/ui/circular-timer"
-import { chosenWord, COUNTDOWN_DENOMINATOR } from "@/store/atoms/game"
+import { chosenWord } from "@/store/atoms/game"
 import { modalAtom } from "@/store/atoms/modal"
 import { useAtom } from "jotai"
 import { useCallback, useEffect, useState } from "react"
+import { wsAtom } from "@/store/atoms/ws"
 
 interface WordModalProps {
   words: string[]
@@ -14,6 +15,7 @@ interface WordModalProps {
 }
 
 export const WordModal = ({ words, timer }: WordModalProps) => {
+  const [ws] = useAtom(wsAtom)
   const [_word, setWord] = useAtom(chosenWord)
   const [modal, setModal] = useAtom(modalAtom)
   const [isTimerActive, setIsTimerActive] = useState(false)
@@ -31,6 +33,13 @@ export const WordModal = ({ words, timer }: WordModalProps) => {
   const onChooseWord = useCallback(
     (selectedWord: string) => {
       setWord(selectedWord)
+      if (ws !== null && ws?.readyState) {
+        const message: Message<"word_selection", string> = {
+          type: "word_selection",
+          data: selectedWord
+        }
+        ws.send(JSON.stringify(message))
+      }
       setIsTimerActive(false)
       setModal(null) // Close modal
     },
@@ -62,7 +71,7 @@ export const WordModal = ({ words, timer }: WordModalProps) => {
         <div className="space-y-8">
           <div className="flex flex-col items-center space-y-4">
             <CircularTimer
-              duration={timer / COUNTDOWN_DENOMINATOR}
+              duration={timer}
               isActive={isTimerActive}
               onComplete={handleTimerComplete}
               className="text-primary"

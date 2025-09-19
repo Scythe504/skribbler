@@ -28,5 +28,5 @@ export interface GameResultData {
     is_correct: boolean;
     score: number;
     position: number;
-    time_to_guess_ms: BigInt;
-} 
+    time_to_guess_ms: number;
+}

@@ -233,7 +233,7 @@ export class PixelDrawingManager {
         }
     }
 
-    private handleRemoteMessage(message: PixelMessage) {
+    public handleRemoteMessage(message: PixelMessage) {
         if ('pixels' in message) {
             // batch operation
             for (const pixel of message.pixels) {

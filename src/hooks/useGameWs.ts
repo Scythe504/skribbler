@@ -1,57 +1,66 @@
 'use client'
 import { wsAtom } from "@/store/atoms/ws";
-import { MessageType, WebSocketResponse } from "@/types/ws-resp";
+import { WebSocketResponse, MessagePayloadMap } from "@/types/ws-resp";
 import { useAtom } from "jotai";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-
-type Handlers = {
-    [K in MessageType]?: (data: any) => void
-}
-export function useGameWebsocket(wsUrl: string | null, handlers: Handlers) {
-    const [ws, setWs] = useAtom(wsAtom)
+type MessageHandler = <T extends keyof MessagePayloadMap>(msg: {
+    type: T
+    data: MessagePayloadMap[T]
+}) => void
+export function useGameWebsocket(wsUrl: string | null, handleMessage: MessageHandler) {
+    const [, setWs] = useAtom(wsAtom) // only set, don't read
     const [isConnected, setIsConnected] = useState(false)
     const [connectionError, setConnectionError] = useState<string | null>(null)
+
+    const messageHandlerRef = useRef<MessageHandler>(handleMessage)
+    useEffect(() => {
+        messageHandlerRef.current = handleMessage
+    }, [handleMessage])
 
     useEffect(() => {
         if (!wsUrl) return
 
+        console.log("[useGameWebsocket] Connecting to:", wsUrl)
+        setConnectionError(null)
+
         const websocket = new WebSocket(wsUrl)
 
         websocket.onopen = () => {
+            console.log("[useGameWebsocket] Connected")
             setIsConnected(true)
-            setWs(websocket)
+            setWs(websocket) // publish globally
         }
 
-        websocket.onclose = (e) => {
+        websocket.onclose = (event) => {
+            console.log("[useGameWebsocket] Closed:", event.code, event.reason)
             setIsConnected(false)
             setWs(null)
-            if (e.code != 1000) {
-                setConnectionError(e.reason || "Connection closed unexpectedly")
+            if (event.code !== 1000) {
+                setConnectionError(event.reason || "Unknown reason")
             }
         }
 
-        // TODO: set onerror → log error + update state
-        websocket.onerror = () => {
-            setConnectionError("WebSocket error")
+        websocket.onerror = (err) => {
+            console.error("[useGameWebsocket] Error:", err)
+            setConnectionError("Failed to connect")
             setIsConnected(false)
         }
 
-        // TODO: set onmessage → parse JSON + call handler
         websocket.onmessage = (event) => {
             try {
-                const msg: WebSocketResponse = JSON.parse(event.data)
-                const handler = handlers[msg.type as MessageType]
-                if (handler) handler(msg.data)
-            } catch (err) {
-                console.error("Bad WS message:", err)
+                const message: WebSocketResponse = JSON.parse(event.data)
+                messageHandlerRef.current(message)
+            } catch (e) {
+                console.error("Failed to parse WebSocket message:", e)
             }
         }
 
-        // TODO: cleanup on unmount
         return () => {
-            websocket.close(1000, "Component unmounted")
+            console.log("[useGameWebsocket] Cleaning up WebSocket")
+            websocket.close(1000, "Component unmounting")
         }
-    }, [wsUrl])
+    }, [wsUrl, setWs]) // notice: no `ws` here
 
+    return { isConnected, connectionError }
 }

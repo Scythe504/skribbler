@@ -1,6 +1,6 @@
 import { atom } from "jotai"
 import { Player, PlayerGuess } from "@/types/ws-model"
-import { GamePhase } from "@/types/ws-resp"
+import { GamePhase, GameStateUpdateData, Phase } from "@/types/ws-resp"
 
 // ===============================
 // TODO: WebSocket connection atom
@@ -21,14 +21,14 @@ export const roomIdAtom = atom<string>("")
 // TODO: Game state atom
 // - Phase, round, drawer, players
 // ===============================
-export const gameStateAtom = atom({
-  phase: "lobby" as GamePhase,
-  roundNumber: 0,
-  maxRounds: 0,
-  currentDrawer: null as Player | null,
-  timeRemaining: 0,
+export const gameStateAtom = atom<GameStateUpdateData>({
+  phase: Phase.PhaseLobby,
+  round_number: 0,
+  max_rounds: 0,
+  current_drawer: null as Player | null,
+  time_remaining: 0,
   players: [] as Player[],
-  correctGuessers: [] as PlayerGuess[],
+  correct_guessers: [] as PlayerGuess[],
   word: "",
 })
 
